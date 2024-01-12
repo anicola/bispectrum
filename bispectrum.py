@@ -62,13 +62,27 @@ def Bmmm(k1, k2, k3, a, Pk2d):
 
     return B
 
+def Bmmm_ev_test(k1, k2, k3, a, Pk2d, Pk1, Pk2, Pk3):
+
+    # Pk1 = np.array([np.diag(Pk2d(k=k1[i, :], a=a)) for i in range(k1.shape[0])])[:, np.newaxis, np.newaxis, :] 
+    # Pk1 = Pk1[np.newaxis, np.newaxis, np.newaxis, :]       
+
+    # k1 = k1[np.newaxis, np.newaxis, np.newaxis, :]
+
+    B = 2*F2(k1, k2, k3)*Pk1*Pk2 + \
+        2*F2(k2, k3, k1)*Pk2*Pk3 + \
+        2*F2(k3, k1, k2)*Pk1*Pk3
+
+    return B
+
 def Bmmm_ev(k1, k2, k3, a, Pk2d):
 
-    Pk1 = np.array([np.diag(Pk2d(k=k1[i, :], a=a)) for i in range(k1.shape[0])])[:, np.newaxis, np.newaxis, :] 
+    # Pk1 = np.array([np.diag(Pk2d(k=k1[i, :], a=a)) for i in range(k1.shape[0])])[:, np.newaxis, np.newaxis, :] 
+    Pk1 = np.diag(Pk2d(k=k1, a=a))[np.newaxis, np.newaxis, np.newaxis, :] 
     Pk2 = np.array([np.diag(Pk2d(k=k2[i, :], a=a)) for i in range(k2.shape[0])])[np.newaxis, :, np.newaxis, :]
     Pk3 = np.array([np.diag(Pk2d(k=k3[i, :], a=a)) for i in range(k3.shape[0])])[np.newaxis, np.newaxis, :, :]       
 
-    k1 = k1[:, np.newaxis, np.newaxis, :]
+    k1 = k1[np.newaxis, np.newaxis, np.newaxis, :]
     k2 = k2[np.newaxis, :, np.newaxis, :]
     k3 = k3[np.newaxis, np.newaxis, :, :]
 
@@ -246,7 +260,7 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
 
 def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=None):
 
-    assert l1.shape[0] == l2.shape[0] == l3.shape[0], 'Shape mismatch of ell arrays.'
+    # assert l1.shape[0] == l2.shape[0] == l3.shape[0], 'Shape mismatch of ell arrays.'
 
     z_arr = np.linspace(0.001, 3, 300)
     a_arr = 1./(1+z_arr)
@@ -282,9 +296,9 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
 
         logger.info('Computing Bmmm')
         if Bkm == 'tree':
-            Bk_part = partial(Bmmm_ev, a=a_arr, Pk2d=Pk2d)
+            Bk_part = partial(Bmmm_ev_test, a=a_arr, Pk2d=Pk2d)
         else:
-            bihalofit = bhf.Bihalofit(cosmo)
+            bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
             Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
         l1 = lm[0]
         l2 = lm[1]
@@ -314,24 +328,49 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
         l2 = lg[1]
         l3 = lg[2]
 
-    if Bkm != 'halofit':
-        B = Bk_part(k1=l1[:, np.newaxis]/chi_arr, k2=l2[:, np.newaxis]/chi_arr, 
-                k3=l3[:, np.newaxis]/chi_arr)
+    # if Bkm != 'halofit':
+    #     B = Bk_part(k1=l1[:, np.newaxis]/chi_arr, k2=l2[:, np.newaxis]/chi_arr, 
+    #             k3=l3[:, np.newaxis]/chi_arr)
 
-        integ = tr1.get_kernel(chi_arr)[0]*tr2.get_kernel(chi_arr)[0]*\
-                tr3.get_kernel(chi_arr)[0]/chi_arr**4*B
+    #     integ = tr1.get_kernel(chi_arr)[0]*tr2.get_kernel(chi_arr)[0]*\
+    #             tr3.get_kernel(chi_arr)[0]/chi_arr**4*B
 
-        Bl = np.trapz(integ, chi_arr, axis=-1)
+    #     Bl = np.trapz(integ, chi_arr, axis=-1)
 
-    else:
-        Bk_intg = np.zeros((l1.shape[0], l2.shape[0], l3.shape[0], chi_arr.shape[0]))
+    # else:
+    Bl = np.zeros((l1.shape[0], l2.shape[0], l3.shape[0]))
+    pref = tr1.get_kernel(chi_arr)[0]*tr2.get_kernel(chi_arr)[0]*tr3.get_kernel(chi_arr)[0]/chi_arr**4
+    if Bkm == 'tree':
+        k1 = l1[:, np.newaxis]/chi_arr
+        k2 = l2[:, np.newaxis]/chi_arr
+        k3 = l3[:, np.newaxis]/chi_arr
+        Pk1 = np.array([np.diag(Pk2d(k=k1[i, :], a=a_arr)) for i in range(k1.shape[0])])
+        Pk2 = np.array([np.diag(Pk2d(k=k2[i, :], a=a_arr)) for i in range(k2.shape[0])])[np.newaxis, :, np.newaxis, :]
+        Pk3 = np.array([np.diag(Pk2d(k=k3[i, :], a=a_arr)) for i in range(k3.shape[0])])[np.newaxis, np.newaxis, :, :] 
+        k2 = k2[np.newaxis, :, np.newaxis, :]
+        k3 = k3[np.newaxis, np.newaxis, :, :]    
+
+        Pk1 = Pk1[:, np.newaxis, np.newaxis, :]       
+        k1 = k1[:, np.newaxis, np.newaxis, :]
+
         for i in range(len(l1)):
-            Bk_intg[i, :, :, :] = Bk_part(k1=l1[i]/chi_arr, k2=l2[:, np.newaxis]/chi_arr,
-                 k3=l3[:, np.newaxis]/chi_arr)
+            for j in range(len(l2)):
+                Bk_intg = Bk_part(k1=k1[i, :], k2=k2[:, j, :, :], k3=k3, Pk1=Pk1[i, :], Pk2=Pk2[:, j, :, :], Pk3=Pk3)
+                integ = pref*Bk_intg   
+                Bl[i, j, :] = np.trapz(integ, chi_arr, axis=-1)
+    else:
+        Bk_intg = np.zeros((l1.shape[0], l2.shape[0], l3.shape[0]))
 
-        integ = tr1.get_kernel(chi_arr)[0]*tr2.get_kernel(chi_arr)[0]*tr3.get_kernel(chi_arr)[0]/chi_arr**4*Bk_intg   
+        pref = tr1.get_kernel(chi_arr)[0]*tr2.get_kernel(chi_arr)[0]*tr3.get_kernel(chi_arr)[0]/chi_arr**4
 
-        Bl = np.trapz(integ, chi_arr, axis=-1)
+        k1 = l1[:, np.newaxis]/chi_arr
+        k2 = l2[:, np.newaxis]/chi_arr
+        k3 = l3[:, np.newaxis]/chi_arr
+        for i in range(len(l1)):
+            Bk_intg = Bk_part(k1=k1[i], k2=k2, k3=k3)
+
+            integ = pref*Bk_intg   
+            Bl[i, :, :] = np.trapz(integ, chi_arr, axis=-1)
 
     return Bl
 

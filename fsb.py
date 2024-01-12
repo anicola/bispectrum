@@ -48,13 +48,38 @@ def Bk_fsb(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, ls_bins, ll_bins, Bkm='tree')
 
     bl1l2l3 = bs.Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm=Bkm)
 
-    Bl_fsb = (2*l1[:, np.newaxis, np.newaxis]+1)*(2*l2[:, np.newaxis, np.newaxis]+1)*\
-                (2*l3[:, np.newaxis, np.newaxis]+1)/4./np.pi*big_w3j*bl1l2l3
+    Bl_fsb = (2*l1[:, np.newaxis, np.newaxis]+1)*(2*l2[np.newaxis, :, np.newaxis]+1)*\
+                (2*l3[np.newaxis, np.newaxis, :]+1)/4./np.pi*big_w3j*bl1l2l3
 
     Bl_fsb_binned = np.zeros((nbin_ls, nbin_ll))
     for ls in range(nbin_ls):
         for ll in range(nbin_ll):
+            print((Bl_fsb[ls_lower[ls]:ls_upper[ls], ls_lower[ls]:ls_upper[ls], ll_lower[ll]:ll_upper[ll]]).shape)
             Bl_fsb_binned[ls, ll] = np.sum(Bl_fsb[ls_lower[ls]:ls_upper[ls], 
-                            ls_lower[ls]:ls_upper[ls], ll_lower[ll]:ll_upper[ll]])
+                            ls_lower[ls]:ls_upper[ls], ll_lower[ll]:ll_upper[ll]]/(2*l3[np.newaxis, np.newaxis, ll_lower[ll]:ll_upper[ll]]+1))
+    
+    return Bl_fsb_binned, bl1l2l3
+
+def Bk_fsb_test(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, ls_bins, ll_bins, Bkm='tree'):
+
+    lmax = np.max([np.max(ls_bins), np.max(ll_bins)])
+    l3 = np.arange(0, lmax)
+    l1 = l2 = np.arange(ls_bins[0], ls_bins[-1])
+
+    ll_lower = ll_bins[:-1]
+    ll_upper = ll_bins[1:]
+    nbin_ll = ll_lower.shape[0]
+
+    big_w3j = precompute_w3j(lmax)
+
+    bl1l2l3 = bs.Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm=Bkm)
+
+    Bl_fsb = (2*l1[:, np.newaxis, np.newaxis]+1)*(2*l2[np.newaxis, :, np.newaxis]+1)*\
+                (2*l3[np.newaxis, np.newaxis, :]+1)/4./np.pi*big_w3j[ls_bins[0]:ls_bins[-1], ls_bins[0]:ls_bins[-1], :]*bl1l2l3
+
+    Bl_fsb_binned = np.zeros(nbin_ll)
+    for ll in range(nbin_ll):
+        Bl_fsb_binned[ll] = np.sum(Bl_fsb[:, :, ll_lower[ll]:ll_upper[ll]])/\
+        np.sum((2*l3[np.newaxis, np.newaxis, ll_lower[ll]:ll_upper[ll]]+1))
     
     return Bl_fsb_binned, bl1l2l3
