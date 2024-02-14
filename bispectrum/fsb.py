@@ -65,7 +65,7 @@ def precompute_w3j(lmax):
     
 #     return Bl_fsb_binned, bl1l2l3
 
-def Bk_fsb(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, ls_bins, ll_bins, Bkm='tree', nbar=None, bias=None):
+def Bk_fsb(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, ls_bins, ll_bins, Bkm='tree', nbar=None):
     '''
     Compute the FSB.
     params:
@@ -90,16 +90,62 @@ def Bk_fsb(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, ls_bins, ll_bins, Bkm='tree',
 
     bl1l2l3 = bs.Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm=Bkm)
 
-    if nbar is not None:
-        cl = ccl.angular_cl(cosmo, tr1, tr2, l3)
-        if bias is not None:
-            bl1l2l3 = bias**3*bl1l2l3 + 1./nbar**2 + 1./nbar*bias**2*(cl[ls_bins[0]:ls_bins[-1], np.newaxis, np.newaxis] + \
-                cl[np.newaxis, ls_bins[0]:ls_bins[-1], np.newaxis] + \
-                cl[np.newaxis, np.newaxis, :])
+    pt_types = [ptt1.type, ptt2.type, ptt3.type]
+
+    # All tracers are number counts
+    if pt_types.count('NC') == 3:
+        if ptt1 == ptt2 == ptt3:
+            # Compute bias
+            b = ptt1.b1(0)
+            if nbar is not None:
+                # Compute cls
+                cl = ccl.angular_cl(cosmo, tr1, tr2, l3)
+
+                bl1l2l3 = b**3*bl1l2l3 + 1./nbar**2 + \
+                    1./nbar*b**2*(cl[ls_bins[0]:ls_bins[-1], np.newaxis, np.newaxis] + \
+                    cl[np.newaxis, ls_bins[0]:ls_bins[-1], np.newaxis] + \
+                    cl[np.newaxis, np.newaxis, :])
+            else:
+                bl1l2l3 = b**3*bl1l2l3
+
         else:
-            bl1l2l3 = bl1l2l3 + 1./nbar**2 + 1./nbar*(cl[ls_bins[0]:ls_bins[-1], np.newaxis, np.newaxis] + \
-                cl[np.newaxis, ls_bins[0]:ls_bins[-1], np.newaxis] + \
-                cl[np.newaxis, np.newaxis, :])
+            raise Exception('Shot noise is not implemented for cross-correlation of tracers')
+        
+    # Two tracers are number counts
+    elif pt_types.count('NC') == 2:
+
+        pg = []
+        pm = []
+        trg = []
+        trm = []
+
+        if ptt1.type == 'NC':
+            pg.append(ptt1)
+            trg.append(tr1)
+        else:
+            pm.append(ptt1)
+            trm.append(tr1)
+        if ptt2.type == 'NC':
+            pg.append(ptt2)
+            trg.append(tr2)
+        else:   
+            pm.append(ptt2)
+            trm.append(tr2)
+        if ptt3.type == 'NC':  
+            pg.append(ptt3)
+            trg.append(tr3)
+        else:   
+            pm.append(ptt3)
+            trm.append(tr3)  
+
+        cl = ccl.angular_cl_tracer_tracer(cosmo, trg[0], trm[0], l3)
+
+        # Compute bias
+        b = pg[0].b1(0)
+        if pg[0] == pg[1] and nbar is not None:
+            bl1l2l3 = b**2*bl1l2l3 + 1./nbar*b*cl[np.newaxis, np.newaxis, :]
+        else:
+            bl1l2l3 = b**2*bl1l2l3
 
     Bl_fsb = (2*l1[:, np.newaxis, np.newaxis]+1)*(2*l2[np.newaxis, :, np.newaxis]+1)*\
                 (2*l3[np.newaxis, np.newaxis, :]+1)/4./np.pi*\
