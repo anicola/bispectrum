@@ -18,7 +18,7 @@ class Bihalofit(object):
         '''
 
         self.cosmo = cosmo
-        a_arr = 1./(1+np.linspace(0, 5, 500))
+        a_arr = 1./(1+np.linspace(0, 5, 100))
         knl, neff = self.initialize_halofit(cosmo, a_arr)
 
         self.knl = scipy.interpolate.interp1d(a_arr, knl)
@@ -55,7 +55,7 @@ class Bihalofit(object):
             self.logsig8z = logsig8z
 
 
-    def sigma2R(self, cosmo, a, R, k_arr):
+    def sigma2R(self, Pk2D_lin, a, R, k_arr):
         ''' 
         Compute the variance of the density field smoothed with a top-hat filter of radius R.
         params:
@@ -65,7 +65,7 @@ class Bihalofit(object):
         k_arr: array, wavenumbers
         '''
 
-        pk = ccl.linear_matter_power(cosmo, k_arr, a=a)[:, np.newaxis]
+        pk = Pk2D_lin(k=k_arr, a=a)[:, np.newaxis]
 
         k_arr = k_arr[:, np.newaxis]
         R = R[np.newaxis, :]
@@ -76,7 +76,7 @@ class Bihalofit(object):
 
         return sigma2R
 
-    def dsigma2RdR(self, cosmo, a, R, k_arr):
+    def dsigma2RdR(self, Pk2D_lin, a, R, k_arr):
         '''
         Compute the derivative of the variance of the density field smoothed with a top-hat filter of radius R.
         params:
@@ -86,7 +86,7 @@ class Bihalofit(object):
         k_arr: array, wavenumbers
         '''
 
-        pk = ccl.linear_matter_power(cosmo, k_arr, a=a)
+        pk = Pk2D_lin(k=k_arr, a=a)
 
         integ = k_arr**4 * pk * np.exp(-k_arr**2 * R**2)
 
@@ -109,19 +109,26 @@ class Bihalofit(object):
         nk_total = int((log10k_max - log10k_min) * nk_per_decade)
         k_arr = np.logspace(log10k_min, log10k_max, nk_total)
 
-        R = 1./np.logspace(-4, 2, 5000)
+        R = 1./np.logspace(-2, 2, 600)
+
+        a_arr = ccl.get_pk_spline_a()
+        pk = np.array([ccl.linear_matter_power(cosmo, k_arr, a=ai) for ai in a_arr])
+        Pk2D_lin = ccl.Pk2D(a_arr=a_arr,
+                lk_arr=np.log(k_arr),
+                pk_arr=pk,
+                is_logp=False)
 
         knl = np.zeros_like(a)
         neff = np.zeros_like(a)
         for i, ai in enumerate(a):
 
-            sigma2R_temp = self.sigma2R(cosmo, ai, R, k_arr)
+            sigma2R_temp = self.sigma2R(Pk2D_lin, ai, R, k_arr)
             rsigma = np.interp(1, sigma2R_temp, R)
-            sigma_knl = self.sigma2R(cosmo, ai, np.array([rsigma]), k_arr)
+            sigma_knl = self.sigma2R(Pk2D_lin, ai, np.array([rsigma]), k_arr)
             assert np.allclose(sigma_knl, 1., rtol=1e-4)
             knl[i] = 1./rsigma
 
-            dsigma2RdR_temp = self.dsigma2RdR(cosmo, ai, 1./knl[i], k_arr)    
+            dsigma2RdR_temp = self.dsigma2RdR(Pk2D_lin, ai, 1./knl[i], k_arr)    
             neff[i] = -3 + 2*rsigma**2*dsigma2RdR_temp / sigma_knl
 
         return knl, neff
