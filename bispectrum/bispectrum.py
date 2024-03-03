@@ -283,7 +283,7 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
         if Bkm == 'tree':
             Bk_part = partial(Bmmm, a=a_arr, Pk2d=Pk2d)
         else:
-            bihalofit = bhf.Bihalofit(cosmo)
+            bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
             Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
         l1 = lm[0]
         l2 = lm[1]

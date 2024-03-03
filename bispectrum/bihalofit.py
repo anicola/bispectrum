@@ -30,29 +30,33 @@ class Bihalofit(object):
             knl = self.knl(a)
             neff = self.neff(a)
 
-            logsig8z = np.log10(np.array([ccl.power.sigmaR(self.cosmo, 8./self.cosmo['h'], a=ai, p_of_k_a=Pk2d) for ai in a]))
+            R8 = 8./self.cosmo['h']
+            logsigma8z_arr = np.log10(np.array([ccl.power.sigmaR(self.cosmo, R8, a=ai, p_of_k_a=Pk2d) for ai in a_arr]))
+            logsigma8z_intp = scipy.interpolate.interp1d(a_arr, logsigma8z_arr)
+            logsigma8z = logsigma8z_intp(a)
             Omegamz = ccl.omega_x(self.cosmo, a, 'matter')
 
             # B1h
             self.gamman = 10**(0.182+0.57*neff)
-            self.bn = 10**(-3.428 - 2.681*logsig8z + 1.624*logsig8z**2 - 0.095*logsig8z**3)*self.cosmo['h']**2
+            self.bn = 10**(-3.428 - 2.681*logsigma8z + 1.624*logsigma8z**2 - 0.095*logsigma8z**3)*self.cosmo['h']**2
             self.cn = 10**(0.159 - 1.107*neff)
 
             # B3h
             self.fn = 10**(-10.533-16.838*neff-9.3048*neff**2-1.8263*neff**3)
             self.gn = 10**(2.787 + 2.405*neff+0.4577*neff**2)
             self.hn = 10**(-1.118-0.394*neff)
-            self.mn = 10**(-2.605-2.434*logsig8z+5.71*logsig8z**2)*self.cosmo['h']**3       
-            self.nn = 10**(-4.468-3.08*logsig8z+1.035*logsig8z**2)*self.cosmo['h']**3
+            self.mn = 10**(-2.605-2.434*logsigma8z+5.71*logsigma8z**2)*self.cosmo['h']**3       
+            self.nn = 10**(-4.468-3.08*logsigma8z+1.035*logsigma8z**2)*self.cosmo['h']**3
             self.mun = 10**(15.312+22.977*neff+10.9579*neff**2+1.6586*neff**3)
             self.nun = 10**(1.347+1.246*neff+0.4525*neff**2)
             self.pn = 10**(0.071-0.433*neff)
-            self.dn = 10**(-0.483+0.892*logsig8z-0.086*Omegamz)
+            self.dn = 10**(-0.483+0.892*logsigma8z-0.086*Omegamz)
             self.en = 10**(-0.632+0.646*neff)
 
             self.knl_arr = knl
             self.neff_arr = neff
-            self.logsig8z = logsig8z
+            self.logsigma8z = logsigma8z
+            self.Omegamz = Omegamz
 
 
     def sigma2R(self, Pk2D_lin, a, R, k_arr):
@@ -133,7 +137,7 @@ class Bihalofit(object):
 
         return knl, neff
 
-    def B1h(self, k1, k2, k3, a, knl, neff, logsig8z):
+    def B1h(self, k1, k2, k3, a, knl, neff, logsigma8z):
         '''
         Compute the 1-halo term of the bispectrum using the bihalofit fitting function.
         See: https://arxiv.org/abs/1911.07886.
@@ -142,7 +146,7 @@ class Bihalofit(object):
         a: array, scale factor
         knl: array, non-linear scale
         neff: array, effective spectral index
-        logsig8z: array, log10 of the variance of the density field smoothed with a top-hat filter of radius 8 Mpc/h
+        logsigma8z: array, log10 of the variance of the density field smoothed with a top-hat filter of radius 8 Mpc/h
         '''
 
         if k1.ndim == 2 or k2.ndim == 2 or k3.ndim == 2:
@@ -183,8 +187,8 @@ class Bihalofit(object):
 
         if not hasattr(self, 'gamman'):
             gamman = 10**(0.182+0.57*neff)
-            an = 10**(-2.167-2.944*logsig8z-1.106*logsig8z**2-2.865*logsig8z**3-0.310*r1**gamman)*self.cosmo['h']**2
-            bn = 10**(-3.428 - 2.681*logsig8z + 1.624*logsig8z**2 - 0.095*logsig8z**3)*self.cosmo['h']**2
+            an = 10**(-2.167-2.944*logsigma8z-1.106*logsigma8z**2-2.865*logsigma8z**3-0.310*r1**gamman)*self.cosmo['h']**2
+            bn = 10**(-3.428 - 2.681*logsigma8z + 1.624*logsigma8z**2 - 0.095*logsigma8z**3)*self.cosmo['h']**2
             cn = 10**(0.159 - 1.107*neff)
             alphan = np.minimum(10**(-4.348 - 3.006*neff - 0.5745*neff**2 + 10**(-0.9+0.2*neff)*r2**2), 1 - 2./3*self.cosmo['n_s'])
             betan = 10**(-1.731-2.845*neff-1.4995*neff**2-0.2811*neff**3+0.007*r2)
@@ -193,7 +197,7 @@ class Bihalofit(object):
                     (1./(an*q2**alphan + bn*q2**betan)) * (1./(1. + (cn*q2)**-1)) * \
                     (1./(an*q3**alphan + bn*q3**betan)) *  (1./(1. + (cn*q3)**-1)) 
         else:
-            an = 10**(-2.167-2.944*self.logsig8z-1.106*self.logsig8z**2-2.865*self.logsig8z**3-0.310*r1**self.gamman)*self.cosmo['h']**2
+            an = 10**(-2.167-2.944*self.logsigma8z-1.106*self.logsigma8z**2-2.865*self.logsigma8z**3-0.310*r1**self.gamman)*self.cosmo['h']**2
             alphan = np.minimum(10**(-4.348 - 3.006*self.neff_arr - 0.5745*self.neff_arr**2 + 10**(-0.9+0.2*self.neff_arr)*r2**2), 1 - 2./3*self.cosmo['n_s'])
             betan = 10**(-1.731-2.845*self.neff_arr-1.4995*self.neff_arr**2-0.2811*self.neff_arr**3+0.007*r2)
 
@@ -230,7 +234,7 @@ class Bihalofit(object):
 
         return PE
 
-    def B3h(self, k1, k2, k3, a, Pk2d, knl, neff, logsig8z, Omegamz):
+    def B3h(self, k1, k2, k3, a, Pk2d, knl, neff, logsigma8z, Omegamz):
         '''
         Compute the 3-halo term of the bispectrum using the bihalofit fitting function.
         See: https://arxiv.org/abs/1911.07886.
@@ -240,7 +244,7 @@ class Bihalofit(object):
         Pk2d: CCL Pk2d power spectrum object
         knl: array, non-linear scale
         neff: array, effective spectral index
-        logsig8z: array, log10 of sigma8 at redshift z
+        logsigma8z: array, log10 of sigma8 at redshift z
         Omegamz: array, Omega_matter at redshift z
         '''
 
@@ -276,12 +280,12 @@ class Bihalofit(object):
             fn = 10**(-10.533-16.838*neff-9.3048*neff**2-1.8263*neff**3)
             gn = 10**(2.787 + 2.405*neff+0.4577*neff**2)
             hn = 10**(-1.118-0.394*neff)
-            mn = 10**(-2.605-2.434*logsig8z+5.71*logsig8z**2)*self.cosmo['h']**3       
-            nn = 10**(-4.468-3.08*logsig8z+1.035*logsig8z**2)*self.cosmo['h']**3
+            mn = 10**(-2.605-2.434*logsigma8z+5.71*logsigma8z**2)*self.cosmo['h']**3       
+            nn = 10**(-4.468-3.08*logsigma8z+1.035*logsigma8z**2)*self.cosmo['h']**3
             mun = 10**(15.312+22.977*neff+10.9579*neff**2+1.6586*neff**3)
             nun = 10**(1.347+1.246*neff+0.4525*neff**2)
             pn = 10**(0.071-0.433*neff)
-            dn = 10**(-0.483+0.892*logsig8z-0.086*Omegamz)
+            dn = 10**(-0.483+0.892*logsigma8z-0.086*Omegamz)
             en = 10**(-0.632+0.646*neff)
 
             Ik1 = self.I(q1, en)
@@ -406,7 +410,7 @@ class Bihalofit(object):
                 r1 = kmin/kmax
                 r2 = (kmid+kmin-kmax)/kmax
 
-            an = 10**(-2.167-2.944*self.logsig8z-1.106*self.logsig8z**2-2.865*self.logsig8z**3-0.310*r1**self.gamman)*self.cosmo['h']**2
+            an = 10**(-2.167-2.944*self.logsigma8z-1.106*self.logsigma8z**2-2.865*self.logsigma8z**3-0.310*r1**self.gamman)*self.cosmo['h']**2
             alphan = np.minimum(10**(-4.348 - 3.006*self.neff_arr - 0.5745*self.neff_arr**2 + 10**(-0.9+0.2*self.neff_arr)*r2**2), 1 - 2./3*self.cosmo['n_s'])
             betan = 10**(-1.731-2.845*self.neff_arr-1.4995*self.neff_arr**2-0.2811*self.neff_arr**3+0.007*r2)
 
