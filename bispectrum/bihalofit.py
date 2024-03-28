@@ -137,7 +137,7 @@ class Bihalofit(object):
 
         return knl, neff
 
-    def B1h(self, k1, k2, k3, a, knl, neff, logsigma8z):
+    def B1h(self, k1, k2, k3, a, knl, neff, logsigma8z, cache=False):
         '''
         Compute the 1-halo term of the bispectrum using the bihalofit fitting function.
         See: https://arxiv.org/abs/1911.07886.
@@ -150,17 +150,26 @@ class Bihalofit(object):
         '''
 
         if k1.ndim == 2 or k2.ndim == 2 or k3.ndim == 2:
-            q1 = k1/knl[np.newaxis, :]
-            q2 = k2/knl[np.newaxis, :]
-            q3 = k3/knl[np.newaxis, :]
 
             if not hasattr(self, 'chi_arr'):
                 chi_arr = ccl.comoving_radial_distance(self.cosmo, a)
                 k1_mesh = np.meshgrid(np.array((k1*chi_arr)[0]), (k2*chi_arr)[:, 0], 
                             (k3*chi_arr)[:, 0], indexing='ij')
             else:
-                k1_mesh = np.meshgrid(np.array((k1*self.chi_arr)[0]), (k2*self.chi_arr)[:, 0], 
-                            (k3*self.chi_arr)[:, 0], indexing='ij')
+                if cache:
+                    if not hasattr(self, 'k2_chi'):
+                        self.k2_chi = (k2*self.chi_arr)[:, 0]
+                        self.k3_chi = (k3*self.chi_arr)[:, 0]
+                        k2_chi = self.k2_chi
+                        k3_chi = self.k3_chi
+                    else:
+                        k2_chi = self.k2_chi
+                        k3_chi = self.k3_chi
+                else:
+                    k2_chi = (k2*self.chi_arr)[:, 0]
+                    k3_chi = (k3*self.chi_arr)[:, 0]
+                k1_mesh = np.meshgrid(np.array((k1*self.chi_arr)[0]), k2_chi, 
+                            k3_chi, indexing='ij')
             ksorted = np.sort(np.stack((k1_mesh[0][0, :, :], k1_mesh[1][0, :, :], 
                         k1_mesh[2][0, :, :])), axis=0)
             kmin = ksorted[0]
@@ -169,9 +178,19 @@ class Bihalofit(object):
             r1 = (kmin/kmax)[np.newaxis, :, :, np.newaxis]
             r2 = ((kmid+kmin-kmax)/kmax)[np.newaxis, :, :, np.newaxis]
 
-            q1 = q1[:, np.newaxis, np.newaxis, :]
-            q2 = q2[np.newaxis, :, np.newaxis, :]
-            q3 = q3[np.newaxis, np.newaxis, :, :]
+            q1 = (k1/knl[np.newaxis, :])[:, np.newaxis, np.newaxis, :]
+            if cache:
+                if not hasattr(self, 'q2'):
+                    self.q2 = (k2/knl[np.newaxis, :])[np.newaxis, :, np.newaxis, :]
+                    self.q3 = (k3/knl[np.newaxis, :])[np.newaxis, np.newaxis, :, :]
+                    q2 = self.q2
+                    q3 = self.q3
+                else:
+                    q2 = self.q2
+                    q3 = self.q3
+            else:
+                q2 = (k2/knl[np.newaxis, :])[np.newaxis, :, np.newaxis, :]
+                q3 = (k3/knl[np.newaxis, :])[np.newaxis, np.newaxis, :, :]            
 
         else:
             q1 = k1/knl
@@ -234,7 +253,7 @@ class Bihalofit(object):
 
         return PE
 
-    def B3h(self, k1, k2, k3, a, Pk2d, knl, neff, logsigma8z, Omegamz):
+    def B3h(self, k1, k2, k3, a, Pk2d, knl, neff, logsigma8z, Omegamz, cache=False):
         '''
         Compute the 3-halo term of the bispectrum using the bihalofit fitting function.
         See: https://arxiv.org/abs/1911.07886.
@@ -259,8 +278,10 @@ class Bihalofit(object):
 
         if k1.ndim == 2 or k2.ndim == 2 or k3.ndim == 2:
             Pklin1 = np.diag(Pk2d(k=k1, a=a))[np.newaxis, np.newaxis, np.newaxis, :] 
-            Pklin2 = np.array([np.diag(Pk2d(k=k2[i, :], a=a)) for i in range(k2.shape[0])])[np.newaxis, :, np.newaxis, :]
-            Pklin3 = np.array([np.diag(Pk2d(k=k3[i, :], a=a)) for i in range(k3.shape[0])])[np.newaxis, np.newaxis, :, :] 
+            if not cache:
+                print('Cache is False')
+                Pklin2 = np.array([np.diag(Pk2d(k=k2[i, :], a=a)) for i in range(k2.shape[0])])[np.newaxis, :, np.newaxis, :]
+                Pklin3 = np.array([np.diag(Pk2d(k=k3[i, :], a=a)) for i in range(k3.shape[0])])[np.newaxis, np.newaxis, :, :]
         else:
             if len(a) == 1:
                 Pklin1 = Pk2d(k=k1, a=a)
@@ -302,12 +323,37 @@ class Bihalofit(object):
 
         else:
             Ik1 = self.I(q1, self.en)
-            Ik2 = self.I(q2, self.en)
-            Ik3 = self.I(q3, self.en)
+            if cache:
+                if not hasattr(self, 'Ik2'):
+                    self.Ik2 = self.I(q2, self.en)
+                    self.Ik3 = self.I(q3, self.en)
+                    Ik2 = self.Ik2
+                    Ik3 = self.Ik3
+                else:
+                    Ik2 = self.Ik2
+                    Ik3 = self.Ik3
+            else:
+                Ik2 = self.I(q2, self.en)
+                Ik3 = self.I(q3, self.en)
 
-            PE1 = self.PE(q1, Pklin1, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, self.nun, self.pn)
-            PE2 = self.PE(q2, Pklin2, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, self.nun, self.pn)
-            PE3 = self.PE(q3, Pklin3, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, self.nun, self.pn)
+            PE1 = self.PE(q1, Pklin1, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, 
+                          self.nun, self.pn)
+            if cache:
+                if not hasattr(self, 'PE2'):
+                    Pklin2 = np.array([np.diag(Pk2d(k=np.squeeze(k2)[i, :], a=a)) for i in range(np.squeeze(k2).shape[0])])[np.newaxis, :, np.newaxis, :]
+                    Pklin3 = np.array([np.diag(Pk2d(k=np.squeeze(k3)[i, :], a=a)) for i in range(np.squeeze(k3).shape[0])])[np.newaxis, np.newaxis, :, :]
+                    self.PE2 = self.PE(q2, Pklin2, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, 
+                                      self.nun, self.pn)
+                    self.PE3 = self.PE(q3, Pklin3, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, 
+                                      self.nun, self.pn)
+                    PE2 = self.PE2
+                    PE3 = self.PE3
+                else:
+                    PE2 = self.PE2
+                    PE3 = self.PE3
+            else:
+                PE2 = self.PE(q2, Pklin2, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, self.nun, self.pn)
+                PE3 = self.PE(q3, Pklin3, self.fn, self.gn, self.hn, self.mn, self.mun, self.nn, self.nun, self.pn)
 
             B3h = 2*((bs.F2(k1, k2, k3) + self.dn*q3)*Ik1*Ik2*Ik3*PE1*PE2 + \
                     (bs.F2(k2, k3, k1) + self.dn*q1)*Ik2*Ik3*Ik1*PE2*PE3 + \
@@ -315,7 +361,7 @@ class Bihalofit(object):
 
         return B3h
 
-    def Bk(self, k1, k2, k3, a, Pk2d=None):
+    def Bk(self, k1, k2, k3, a, Pk2d=None, cache=False):
         ''' 
         Compute the bispectrum using the bihalofit fitting function.
         See: https://arxiv.org/abs/1911.07886.
@@ -340,9 +386,9 @@ class Bihalofit(object):
             B3 = self.B3h(k1, k2, k3, a, Pk2d, knl, neff, logsigma8z, Omegamz)
 
         else:
-            B1 = self.B1h(k1, k2, k3, a, self.knl_arr, self.neff_arr, self.logsigma8z)  
+            B1 = self.B1h(k1, k2, k3, a, self.knl_arr, self.neff_arr, self.logsigma8z, cache)  
 
-            B3 = self.B3h(k1, k2, k3, a, Pk2d, self.knl_arr, self.neff_arr, self.logsigma8z, self.Omegamz)
+            B3 = self.B3h(k1, k2, k3, a, Pk2d, self.knl_arr, self.neff_arr, self.logsigma8z, self.Omegamz, cache)
 
         Bihft = B1 + B3
 

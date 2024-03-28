@@ -277,6 +277,8 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
         pm.append(ptt3)  
         lm.append(l3)
 
+    bias_fac = 1
+
     if len(pg) == 0:
 
         logger.info('Computing Bmmm')
@@ -300,6 +302,7 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
             else:
                 bihalofit = bhf.Bihalofit(cosmo)
                 Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+            bias_fac = pg[0].b1(0)
         else:
             Bk_part = partial(Bmmg, cosmo=cosmo, ptt1=pm[0], ptt2=pm[1], ptt3=pg[0], a=a_arr, Pk2d=Pk2d, Bkm=Bkm)
         l1 = lm[0]
@@ -317,6 +320,7 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
             else:
                 bihalofit = bhf.Bihalofit(cosmo)
                 Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+            bias_fac = pg[0].b1(0)**2
         else:
             Bk_part = partial(Bmgg, cosmo=cosmo, ptt1=pm[0], ptt2=pg[0], ptt3=pg[1], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
         l1 = lm[0]
@@ -332,8 +336,9 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
             if Bkm == 'tree':
                 Bk_part = partial(Bmmm, a=a_arr, Pk2d=Pk2d)
             else:
-                bihalofit = bhf.Bihalofit(cosmo)
+                bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
                 Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+            bias_fac = pg[0].b1(0)**3
         else:
             Bk_part = partial(Bggg, cosmo=cosmo, ptt1=pg[0], ptt2=pg[1], ptt3=pg[2], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
         l1 = lg[0]
@@ -341,13 +346,14 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
         l3 = lg[2]
 
     Bl = np.zeros_like(l1)
+    pref = tr1.get_kernel(chi_arr)[0]*tr2.get_kernel(chi_arr)[0]*tr3.get_kernel(chi_arr)[0]/chi_arr**4
     for i in range(len(l1)):
         B = Bk_part(k1=l1[i]/chi_arr, k2=l2[i]/chi_arr, k3=l3[i]/chi_arr)
 
-        integ = tr1.get_kernel(chi_arr)[0]*tr2.get_kernel(chi_arr)[0]*tr3.get_kernel(chi_arr)[0]/chi_arr**4*B
+        integ = pref*B
         Bl[i] = np.trapz(integ, chi_arr)
 
-    return Bl
+    return bias_fac*Bl
 
 def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=None):
     '''
@@ -392,6 +398,8 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
         pm.append(ptt3)  
         lm.append(l3)
 
+    bias_fac = 1
+
     if len(pg) == 0:
 
         logger.info('Computing Bmmm')
@@ -399,7 +407,7 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
             Bk_part = partial(Bmmm_ev_test, a=a_arr)
         else:
             bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
-            Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+            Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d, cache=True)
             # Bl_part = partial(bihalofit.Bl, a=a_arr, Pk2d=Pk2d)
         l1 = lm[0]
         l2 = lm[1]
@@ -416,6 +424,7 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
             else:
                 bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
                 Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+            bias_fac = pg[0].b1(0)
         else:
             Bk_part = partial(Bmmg, cosmo=cosmo, ptt1=pm[0], ptt2=pm[1], ptt3=pg[0], a=a_arr, Pk2d=Pk2d, Bkm=Bkm)
         l1 = lm[0]
@@ -433,6 +442,7 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
             else:
                 bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
                 Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+            bias_fac = pg[0].b1(0)**2
         else:
             Bk_part = partial(Bmgg, cosmo=cosmo, ptt1=pm[0], ptt2=pg[0], ptt3=pg[1], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
         l1 = lm[0]
@@ -449,7 +459,8 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
                 Bk_part = partial(Bmmm_ev_test, a=a_arr)
             else:
                 bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
-                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d, cache=True)
+            bias_fac = pg[0].b1(0)**3
         else:
             Bk_part = partial(Bggg, cosmo=cosmo, ptt1=pg[0], ptt2=pg[1], ptt3=pg[2], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
         l1 = lg[0]
@@ -487,7 +498,7 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
             integ = pref*Bk_intg   
             Bl[i, :, :] = np.trapz(integ, chi_arr, axis=-1)
 
-    return Bl
+    return bias_fac*Bl
 
 def Bk(cosmo, ptt1, ptt2, ptt3, a, k1, k2, k3, Pk2d=None, Bkm='tree', ndens=None):
     '''
@@ -529,6 +540,8 @@ def Bk(cosmo, ptt1, ptt2, ptt3, a, k1, k2, k3, Pk2d=None, Bkm='tree', ndens=None
         pm.append(ptt3)  
         km.append(k3)
 
+    bias_fac = 1
+
     if len(pg) == 0:
 
         logger.info('Computing Bmmm')
@@ -540,17 +553,47 @@ def Bk(cosmo, ptt1, ptt2, ptt3, a, k1, k2, k3, Pk2d=None, Bkm='tree', ndens=None
     
     elif len(pg) == 1:
 
-        logger.info('Computing Bmmg')
-        Bk = Bmmg(cosmo, pm[0], pm[1], pg[0], km[0], km[1], kg[0], a, Pk2d, Bkm)
+        logger.info('Computing Bmmg')  
+
+        if pg[0].b2(0) == 0.:
+            logger.info('Assuming linear bias for the galaxy tracer.')
+            if Bkm == 'tree':
+                Bk = Bmmm(km[0], km[1], km[2], a, Pk2d)
+            else:
+                Bhf = bhf.Bihalofit(cosmo, a, Pk2d)
+                Bk = Bhf.Bk(km[0], km[1], km[2], a, Pk2d)
+            bias_fac = pg[0].b1(0)
+        else:
+            Bk = Bmmg(cosmo, pm[0], pm[1], pg[0], km[0], km[1], kg[0], a, Pk2d, Bkm)
 
     elif len(pg) == 2:
 
         logger.info('Computing Bmgg')
-        Bk = Bmgg(cosmo, pm[0], pg[0], pg[1], km[0], kg[0], kg[1], a, Pk2d, ndens, Bkm)
+
+        if pg[0].b2(0) == 0.:
+            logger.info('Assuming linear bias for the galaxy tracer.')
+            if Bkm == 'tree':
+                Bk = Bmmm(km[0], km[1], km[2], a, Pk2d)
+            else:
+                Bhf = bhf.Bihalofit(cosmo, a, Pk2d)
+                Bk = Bhf.Bk(km[0], km[1], km[2], a, Pk2d)
+            bias_fac = pg[0].b1(0)**2
+        else:
+            Bk = Bmgg(cosmo, pm[0], pg[0], pg[1], km[0], kg[0], kg[1], a, Pk2d, ndens, Bkm)
 
     else:
 
         logger.info('Computing Bggg')
-        Bk = Bggg(cosmo, pg[0], pg[1], pg[2], kg[0], kg[1], kg[2], a, Pk2d, ndens, Bkm)
+
+        if pg[0].b2(0) == 0.:
+            logger.info('Assuming linear bias for the galaxy tracer.')
+            if Bkm == 'tree':
+                Bk = Bmmm(km[0], km[1], km[2], a, Pk2d)
+            else:
+                Bhf = bhf.Bihalofit(cosmo, a, Pk2d)
+                Bk = Bhf.Bk(km[0], km[1], km[2], a, Pk2d)
+            bias_fac = pg[0].b1(0)**3
+        else:
+            Bk = Bggg(cosmo, pg[0], pg[1], pg[2], kg[0], kg[1], kg[2], a, Pk2d, ndens, Bkm)
    
-    return Bk
+    return bias_fac*Bk
