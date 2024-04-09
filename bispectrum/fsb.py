@@ -89,7 +89,7 @@ class FSB(object):
 
         if not hasattr(self, 'bl1l2l3_interp'):
             l1 = l2 = l3 = np.concatenate((np.arange(lmin, 10).astype('int'), np.linspace(10, 96, 20).astype('int'), 
-                                           np.unique(np.geomspace(100, 767, 50).astype('int'))))
+                                           np.unique(np.geomspace(100, lmax, 50).astype('int'))))
             bl1l2l3 = bs.Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm=Bkm)
             self.bl1l2l3_interp = RegularGridInterpolator((np.log(l1), np.log(l2), np.log(l3)), 
                                                           np.log(bl1l2l3))
