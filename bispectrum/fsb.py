@@ -76,8 +76,9 @@ class FSB(object):
         Compute the FSB with interpolation.
         params:
         cosmo: ccl.Cosmology object
-        tr1, tr2, tr3: ccl.Tracer objects
-        ptt1, ptt2, ptt3: ccl.PTTracer objects
+        tr1: filtered tracer 1 ccl.PTTracer object
+        tr2: filtered tracer 2 ccl.PTTracer object
+        tr3: unfiltered tracer 3 ccl.Tracer object
         ls_bins: filered ell range
         ll_bins: full ell range
         Bkm: bispectrum theory model, can be 'tree' or 'bihalofit'
@@ -155,7 +156,7 @@ class FSB(object):
                 pm.append(ptt3)
                 trm.append(tr3)  
 
-            cl = ccl.angular_cl_tracer_tracer(cosmo, trg[0], trm[0], l3)
+            cl = ccl.angular_cl(cosmo, trg[0], trm[0], l3)
 
             # Compute bias
             b = pg[0].b1(0)
@@ -181,7 +182,9 @@ class FSB(object):
         Compute the FSB.
         params:
         cosmo: ccl.Cosmology object
-        tr1, tr2, tr3: ccl.Tracer objects
+        tr1: filtered tracer 1 ccl.PTTracer object
+        tr2: filtered tracer 2 ccl.PTTracer object
+        tr3: unfiltered tracer 3 ccl.Tracer object
         ptt1, ptt2, ptt3: ccl.PTTracer objects
         ls_bins: filered ell range
         ll_bins: full ell range
@@ -249,7 +252,7 @@ class FSB(object):
                 pm.append(ptt3)
                 trm.append(tr3)  
 
-            cl = ccl.angular_cl_tracer_tracer(cosmo, trg[0], trm[0], l3)
+            cl = ccl.angular_cl(cosmo, trg[0], trm[0], l3)
 
             # Compute bias
             b = pg[0].b1(0)

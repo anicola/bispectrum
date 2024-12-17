@@ -146,12 +146,14 @@ def Bmmg(cosmo, ptt1, ptt2, ptt3, k1, k2, k3, a, Pk2d, Bkm='tree'):
 
     return B
 
-def Bmgg(cosmo, ptt1, ptt2, ptt3, k1, k2, k3, a, Pk2d, ndens=None, Bkm='tree'):
+def Bggm(cosmo, ptt1, ptt2, ptt3, k1, k2, k3, a, Pk2d, ndens=None, Bkm='tree'):
     '''
     Compute the 3D matter-galaxy-galaxy bispectrum.
     params:
     cosmo: ccl.Cosmology object
-    ptt1, ptt2, ptt3: ccl.PTTracer objects
+    ptt1: galaxy tracer 1 ccl.PTTracer object
+    ptt2: galaxy tracer 2 ccl.PTTracer object
+    ptt3: matter tracer ccl.PTTracer object
     k1, k2, k3: array, wavenumbers
     a: array, scale factor
     Pk2d: ccl.Pk2D object
@@ -178,13 +180,13 @@ def Bmgg(cosmo, ptt1, ptt2, ptt3, k1, k2, k3, a, Pk2d, ndens=None, Bkm='tree'):
     else:
         Bmmm_temp = bhf.Bihalofit(cosmo, k1, k2, k3, a, Pk2d)
 
-    B = ptt2.b1(zs)*ptt3.b1(zs)*Bmmm_temp + \
-        + ptt2.b1(zs)*(ptt3.b2(zs) + 2*ptt3.bk2(zs)*(cos12**2 - 1./3))*Pk1*Pk2 + \
-        + ptt3.b1(zs)*(ptt2.b2(zs) + 2*ptt2.bk2(zs)*(cos13**2 - 1./3))*Pk1*Pk3
+    B = ptt1.b1(zs)*ptt2.b1(zs)*Bmmm_temp + \
+        + ptt1.b1(zs)*(ptt2.b2(zs) + 2*ptt2.bk2(zs)*(cos12**2 - 1./3))*Pk2*Pk3 + \
+        + ptt2.b1(zs)*(ptt1.b2(zs) + 2*ptt1.bk2(zs)*(cos13**2 - 1./3))*Pk1*Pk3
 
     if ptt2 == ptt3:
         if ndens is not None:
-            B += 2.*Pk1*ptt2.b1(zs)/ndens
+            B += 2.*Pk1*ptt1.b1(zs)/ndens
 
     return B
    
@@ -286,7 +288,7 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
             Bk_part = partial(Bmmm, a=a_arr, Pk2d=Pk2d)
         else:
             bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
-            Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+            Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d, cache=True)
         l1 = lm[0]
         l2 = lm[1]
         l3 = lm[2]
@@ -301,7 +303,7 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
                 Bk_part = partial(Bmmm, a=a_arr, Pk2d=Pk2d)
             else:
                 bihalofit = bhf.Bihalofit(cosmo)
-                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d, cache=True)
             bias_fac = pg[0].b1(0)
         else:
             Bk_part = partial(Bmmg, cosmo=cosmo, ptt1=pm[0], ptt2=pm[1], ptt3=pg[0], a=a_arr, Pk2d=Pk2d, Bkm=Bkm)
@@ -311,7 +313,7 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
 
     elif len(pg) == 2:
 
-        logger.info('Computing Bmgg')
+        logger.info('Computing Bggm')
 
         if pg[0].b2(0) == 0.:
             logger.info('Assuming linear bias for the galaxy tracer.')
@@ -319,13 +321,13 @@ def Bl(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=Non
                 Bk_part = partial(Bmmm, a=a_arr, Pk2d=Pk2d)
             else:
                 bihalofit = bhf.Bihalofit(cosmo)
-                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d, cache=True)
             bias_fac = pg[0].b1(0)**2
         else:
-            Bk_part = partial(Bmgg, cosmo=cosmo, ptt1=pm[0], ptt2=pg[0], ptt3=pg[1], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
-        l1 = lm[0]
-        l2 = lg[0]
-        l3 = lg[1]
+            Bk_part = partial(Bggm, cosmo=cosmo, ptt1=pg[0], ptt2=pg[1], ptt3=pm[0], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
+        l1 = lg[0]
+        l2 = lg[1]
+        l3 = lm[0]
 
     else:
 
@@ -423,7 +425,7 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
                 Bk_part = partial(Bmmm_ev_test, a=a_arr)
             else:
                 bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
-                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d, cache=True)
             bias_fac = pg[0].b1(0)
         else:
             Bk_part = partial(Bmmg, cosmo=cosmo, ptt1=pm[0], ptt2=pm[1], ptt3=pg[0], a=a_arr, Pk2d=Pk2d, Bkm=Bkm)
@@ -433,7 +435,7 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
 
     elif len(pg) == 2:
 
-        logger.info('Computing Bmgg')
+        logger.info('Computing Bggm')
 
         if pg[0].b2(0) == 0.:
             logger.info('Assuming linear bias for the galaxy tracer.')
@@ -441,13 +443,13 @@ def Bl_ev(cosmo, tr1, tr2, tr3, ptt1, ptt2, ptt3, l1, l2, l3, Bkm='tree', ndens=
                 Bk_part = partial(Bmmm_ev_test, a=a_arr)
             else:
                 bihalofit = bhf.Bihalofit(cosmo, a=a_arr, Pk2d=Pk2d)
-                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d)
+                Bk_part = partial(bihalofit.Bk, a=a_arr, Pk2d=Pk2d, cache=True)
             bias_fac = pg[0].b1(0)**2
         else:
-            Bk_part = partial(Bmgg, cosmo=cosmo, ptt1=pm[0], ptt2=pg[0], ptt3=pg[1], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
-        l1 = lm[0]
-        l2 = lg[0]
-        l3 = lg[1]
+            Bk_part = partial(Bggm, cosmo=cosmo, ptt1=pg[0], ptt2=pg[1], ptt3=pm[0], a=a_arr, Pk2d=Pk2d, Bkm=Bkm, ndens=ndens)
+        l1 = lg[0]
+        l2 = lg[1]
+        l3 = lm[0]
 
     else:
 
@@ -558,28 +560,28 @@ def Bk(cosmo, ptt1, ptt2, ptt3, a, k1, k2, k3, Pk2d=None, Bkm='tree', ndens=None
         if pg[0].b2(0) == 0.:
             logger.info('Assuming linear bias for the galaxy tracer.')
             if Bkm == 'tree':
-                Bk = Bmmm(km[0], km[1], km[2], a, Pk2d)
+                Bk = Bmmm(km[0], km[1], kg[0], a, Pk2d)
             else:
                 Bhf = bhf.Bihalofit(cosmo, a, Pk2d)
-                Bk = Bhf.Bk(km[0], km[1], km[2], a, Pk2d)
+                Bk = Bhf.Bk(km[0], km[1], kg[0], a, Pk2d)
             bias_fac = pg[0].b1(0)
         else:
             Bk = Bmmg(cosmo, pm[0], pm[1], pg[0], km[0], km[1], kg[0], a, Pk2d, Bkm)
 
     elif len(pg) == 2:
 
-        logger.info('Computing Bmgg')
+        logger.info('Computing Bggm')
 
         if pg[0].b2(0) == 0.:
             logger.info('Assuming linear bias for the galaxy tracer.')
             if Bkm == 'tree':
-                Bk = Bmmm(km[0], km[1], km[2], a, Pk2d)
+                Bk = Bmmm(kg[0], kg[1], km[0], a, Pk2d)
             else:
                 Bhf = bhf.Bihalofit(cosmo, a, Pk2d)
-                Bk = Bhf.Bk(km[0], km[1], km[2], a, Pk2d)
+                Bk = Bhf.Bk(kg[0], kg[1], km[0], a, Pk2d)
             bias_fac = pg[0].b1(0)**2
         else:
-            Bk = Bmgg(cosmo, pm[0], pg[0], pg[1], km[0], kg[0], kg[1], a, Pk2d, ndens, Bkm)
+            Bk = Bggm(cosmo, pg[0], pg[1], pm[0], kg[0], kg[1], km[0], a, Pk2d, ndens, Bkm)
 
     else:
 
